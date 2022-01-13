@@ -6,6 +6,7 @@ import os
 import argparse
 import numpy as np
 import scipy.sparse
+import torch
 from dgl.data.utils import get_download_dir
 
 def convert_reddit_data(dataset, out_folder, self_loop=False):

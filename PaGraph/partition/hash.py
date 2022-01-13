@@ -1,9 +1,9 @@
 
 import os
 import sys
+import torch
 import dgl
 from dgl import DGLGraph
-import torch
 import numpy as np
 import scipy.sparse as spsp
 import argparse

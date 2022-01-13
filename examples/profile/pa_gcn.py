@@ -30,7 +30,11 @@ def trainer(rank, world_size, args, backend='nccl'):
   
   # load data
   dataname = os.path.basename(args.dataset)
+  if rank == 0:
+      print("before loading remote_g")
   remote_g = dgl.contrib.graph_store.create_graph_from_store(dataname, "shared_mem")
+  if rank == 0:
+      print("after loading remote_g")
 
   adj, t2fid = data.get_sub_train_graph(args.dataset, rank, world_size)
   g = DGLGraph(adj, readonly=True)
@@ -65,6 +69,8 @@ def trainer(rank, world_size, args, backend='nccl'):
   model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
   ctx = torch.device(rank)
 
+  if rank == 0:
+      print("before prepare sampler")
   if args.remote_sample:
     sampler = SampleLoader(g, rank, one2all=False)
   else:
@@ -74,6 +80,8 @@ def trainer(rank, world_size, args, backend='nccl'):
       num_hops=num_hops, seed_nodes=train_nid,
       prefetch=True
     )
+  if rank == 0:
+      print("after prepare sampler")
 
   # start training
   epoch_dur = []
@@ -103,14 +111,16 @@ def trainer(rank, world_size, args, backend='nccl'):
                 .format(epoch + 1, step, loss.item()))
       if rank == 0:
         epoch_dur.append(time.time() - epoch_start_time)
-        print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
+        #print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
       if cacher.log:
         miss_rate = cacher.get_miss_rate()
         print('Epoch average miss rate: {:.4f}'.format(miss_rate))
     toc = time.time()
   if rank == 0:
-    print(prof.key_averages().table(sort_by='cuda_time_total'))
-  print('Total Time: {:.4f}s'.format(toc - tic))
+    print('Epoch time: %s' % (epoch_dur))
+    print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
+    print('Total Time: {:.4f}s'.format(toc - tic))
+    #print(prof.key_averages().table(sort_by='cuda_time_total'))
 
 
 

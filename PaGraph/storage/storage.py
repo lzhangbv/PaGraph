@@ -9,7 +9,7 @@ import sys
 #sys.path.append(modpath)
 
 import numpy as np
-import numba
+#import numba
 import torch
 from dgl import DGLGraph
 from dgl.frame import Frame, FrameRef

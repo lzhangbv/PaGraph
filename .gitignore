@@ -1,0 +1,8 @@
+logs/
+log/
+data/
+dataset/
+output/
+
+__pycache__/
+
