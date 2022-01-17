@@ -72,7 +72,7 @@ def trainer(rank, world_size, args, backend='nccl'):
   if rank == 0:
       print("before prepare sampler")
   if args.remote_sample:
-    sampler = SampleLoader(g, rank, one2all=False)
+    sampler = SampleLoader(g, rank, one2all=args.one2all)
   else:
     sampler = dgl.contrib.sampling.NeighborSampler(g, args.batch_size,
       args.num_neighbors, neighbor_type='in',
@@ -105,21 +105,27 @@ def trainer(rank, world_size, args, backend='nccl'):
           optimizer.step()
         step += 1
         if epoch == 0 and step == 1:
+          cache_time = time.time()
           cacher.auto_cache(g, embed_names)
-        if rank == 0 and step % 20 == 0:
+          print('auto_cache time on gpu %s: %.4f' % (rank, time.time() - cache_time))
+        if rank == 0 and step % 10 == 0:
           print('epoch [{}] step [{}]. Loss: {:.4f}'
                 .format(epoch + 1, step, loss.item()))
-      if rank == 0:
-        epoch_dur.append(time.time() - epoch_start_time)
-        #print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
+      
+      epoch_dur.append(time.time() - epoch_start_time)
+      #print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
+      
       if cacher.log:
         miss_rate = cacher.get_miss_rate()
         print('Epoch average miss rate: {:.4f}'.format(miss_rate))
     toc = time.time()
-  if rank == 0:
-    print('Epoch time: %s' % (epoch_dur))
-    print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
-    print('Total Time: {:.4f}s'.format(toc - tic))
+  if True:
+    print('Epoch time on gpu %s: %s' % (rank, epoch_dur))
+    print('Epoch average time on gpu %s: %.4f' %(rank, np.mean(np.array(epoch_dur[2:]))))
+    print('Total Time on gpu %s: %.4f' %(rank, toc - tic))
+  #if rank == 0:
+    #print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
+    #print('Total Time: {:.4f}s'.format(toc - tic))
     #print(prof.key_averages().table(sort_by='cuda_time_total'))
 
 
@@ -158,6 +164,8 @@ if __name__ == '__main__':
   parser.add_argument("--num-workers", type=int, default=16)
   parser.add_argument("--remote-sample", dest='remote_sample', action='store_true')
   parser.set_defaults(remote_sample=False)
+  parser.add_argument("--one2all", dest='one2all', action='store_true')
+  parser.set_defaults(one2all=False)
   
   args = parser.parse_args()
 

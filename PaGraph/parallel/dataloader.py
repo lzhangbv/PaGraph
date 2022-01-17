@@ -14,20 +14,21 @@ import numpy as np
 import multiprocessing as mp
 import socket
 
-barrier_interval = 50
+barrier_interval = 20
+sample_port = 8760
 
 class SampleLoader:
   """ SampleLoader
   sample load pipeline
   """
-  def __init__(self, graph, rank, one2all=True):
+  def __init__(self, graph, rank, one2all=False):
     # connect to server sampler:
     barrier_rank = 0 if one2all else rank
     self._barrier = SampleBarrier('trainer', rank=barrier_rank)
 
     self._graph = graph
     self._rank = rank
-    self._port = 8760
+    self._port = sample_port
     # wait for recving samples
     self._recver = dgl.contrib.sampling.SamplerReceiver(
       self._graph, 
@@ -79,13 +80,13 @@ class SampleDeliver:
     self._neighbor_num = neighbor_num
     self._hops = hops
     self._trainer_num = trainer_num
-    self._sender_port = 8760
+    self._sender_port = sample_port
     self._proc = None
-    self._one2all = True
+    self._one2all = False
     self._barrier_interval = barrier_interval
 
 
-  def async_sample(self, epoch, batch_size, one2all=True):
+  def async_sample(self, epoch, batch_size, one2all=False):
     self._one2all = one2all
     if one2all:
       self._proc = mp.Process(target=self.one2all_sample,
@@ -148,18 +149,20 @@ class SampleDeliver:
   
 
   def one2one_sample(self, epoch_num, batch_size, train_nid, rank):
+    
+    # to be fixed: the sampler can't be loaded unless set shuffle=False
+    graph = self._graph[rank] if isinstance(self._graph, list) else self._graph
+    sampler = dgl.contrib.sampling.NeighborSampler(graph, batch_size, 
+            self._neighbor_num, neighbor_type='in', 
+            shuffle=False, num_workers=4,  
+            num_hops=self._hops, seed_nodes=train_nid, 
+            prefetch=True)
+      
     # waiting trainers connecting
     barrier = SampleBarrier('server', rank=rank)
     namebook = {0: '127.0.0.1:'+ str(self._sender_port + rank)}
     sender = dgl.contrib.sampling.SamplerSender(namebook, net_type='socket')
-    graph = self._graph[rank] if isinstance(self._graph, list) else self._graph
-    sampler = dgl.contrib.sampling.NeighborSampler(
-      graph, batch_size,
-      self._neighbor_num, neighbor_type='in',
-      shuffle=True, num_workers=4,
-      num_hops=self._hops, seed_nodes=train_nid,
-      prefetch=True, add_self_loop=False
-    )
+    
     for epoch in range(epoch_num):
       idx = 0
       for nf in sampler:
@@ -177,8 +180,8 @@ class SampleDeliver:
       if self._one2all:
         self._proc.join()
       else:
-        self._proc.close()
-        self._proc.join()
+        for proc in self._proc:
+          proc.join()
 
 
 class SampleBarrier:

@@ -62,7 +62,7 @@ def trainer(rank, world_size, args, backend='nccl'):
   # start training
   epoch_dur = []
   if args.remote_sample:
-    sampler = SampleLoader(g, rank, one2all=False)
+    sampler = SampleLoader(g, rank, one2all=args.one2all)
   else:
     sampler = dgl.contrib.sampling.NeighborSampler(g, args.batch_size,
                                                    args.num_neighbors,
@@ -72,6 +72,7 @@ def trainer(rank, world_size, args, backend='nccl'):
                                                    num_hops=num_hops,
                                                    seed_nodes=train_nid,
                                                    prefetch=True)
+  
   profile_begin = time.time()
   with torch.autograd.profiler.profile(enabled=(rank==0), use_cuda=True) as prof:
     for epoch in range(args.n_epochs):
@@ -96,7 +97,7 @@ def trainer(rank, world_size, args, backend='nccl'):
       if rank == 0:
         epoch_dur.append(time.time() - epoch_start_time)
         print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
-  print('Total Time: {:.4f}s'.format(time.time() - profile_begin))
+  print('Total Time on gpu %s: %.4f' % (rank, time.time() - profile_begin))
   if rank == 0:
     print(prof.key_averages().table(sort_by='cuda_time_total'))
 
@@ -134,6 +135,8 @@ if __name__ == '__main__':
   parser.add_argument("--num-workers", type=int, default=16)
   parser.add_argument("--remote-sample", dest='remote_sample', action='store_true')
   parser.set_defaults(remote_sample=False)
+  parser.add_argument("--one2all", dest='one2all', action='store_true')
+  parser.set_defaults(one2all=False)
 
 
   args = parser.parse_args()

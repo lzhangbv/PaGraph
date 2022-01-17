@@ -66,13 +66,15 @@ def main(args):
     train_nid = np.nonzero(train_mask)[0].astype(np.int64)
     chunk_size = int(train_nid.shape[0] / args.num_workers) - 1
     subgraph = []
-    sub_trainnid = []
-    for rank in range(args.num_workers):
-      train_nid = train_nid[chunk_size * rank:chunk_size * (rank + 1)]
-      sub_trainnid.append(train_nid)
+    # fixed
+    #sub_trainnid = []
+    #for rank in range(args.num_workers):
+    #  train_nid = train_nid[chunk_size * rank:chunk_size * (rank + 1)]
+    #  sub_trainnid.append(train_nid)
     hops = args.gnn_layers - 1 if args.preprocess else args.gnn_layers
     print('Expected trainer#: {}. Start sampling at server end...'.format(args.num_workers))
-    deliver = SampleDeliver(graph, sub_trainnid, args.num_neighbors, hops, args.num_workers)
+    deliver = SampleDeliver(graph, train_nid, args.num_neighbors, hops, args.num_workers)
+    #deliver = SampleDeliver(graph, sub_trainnid, args.num_neighbors, hops, args.num_workers)
     deliver.async_sample(args.n_epochs, args.batch_size, one2all=args.one2all)
     
   print('start running graph server on dataset: {}'.format(graph_name))
