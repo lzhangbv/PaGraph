@@ -3,7 +3,7 @@
 gpu_ids="${gpu_ids:-0}"
 preprocess="${preprocess:-1}"
 remote_sample="${remote_sample:-1}"
-one2all="${one2all:-1}"
+one2all="${one2all:-0}"
 pa_trainer="${pa_trainer:-1}"
 
 params="--dataset /localdata/reddit --feat-size 602 --gpu $gpu_ids"

@@ -98,8 +98,8 @@ def trainer(rank, world_size, args, backend='nccl'):
         epoch_dur.append(time.time() - epoch_start_time)
         print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
   print('Total Time on gpu %s: %.4f' % (rank, time.time() - profile_begin))
-  if rank == 0:
-    print(prof.key_averages().table(sort_by='cuda_time_total'))
+  #if rank == 0:
+  #  print(prof.key_averages().table(sort_by='cuda_time_total'))
 
 
 if __name__ == '__main__':
