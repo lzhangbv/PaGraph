@@ -51,7 +51,7 @@ class GraphCacheServer:
       self.localid2cacheid.requires_grad_(False)
     
     # logs
-    self.log = False
+    self.log = True
     self.try_num = 0
     self.miss_num = 0
 
@@ -82,8 +82,8 @@ class GraphCacheServer:
                 - 1024 * 1024 * 1024 # in bytes
     # Stpe2: get capability
     self.capability = int(available / (self.total_dim * 4)) # assume float32 = 4 bytes
-    #self.capability = int(6 * 1024 * 1024 * 1024 / (self.total_dim * 4))
-    #self.capability = int(self.node_num * 0.8)
+    #self.capability = int(300 * 1024 * 1024 / (self.total_dim * 4))  # 300MB
+    #self.capability = int(self.node_num * 0.6)     # x% percentage of node_num
     print('Cache Memory: {:.2f}G. Capability: {}'
           .format(available / 1024 / 1024 / 1024, self.capability))
     # Step3: cache
@@ -221,6 +221,8 @@ class GraphCacheServer:
     self.miss_num += miss_num
   
   def get_miss_rate(self):
+    if self.try_num == 0:  # fully cached
+        return 0.0
     miss_rate = float(self.miss_num) / self.try_num
     self.miss_num = 0
     self.try_num = 0

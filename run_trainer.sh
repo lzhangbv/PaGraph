@@ -25,11 +25,14 @@ PY=/home/esetstore/dgl0.4/bin/python
 
 # benchmark
 if [ "$pa_trainer" = "0" ]; then
-    # dgl gcn
+    # (1) dgl gcn
     echo "python examples/profile/dgl_gcn.py $params"
     $PY examples/profile/dgl_gcn.py $params
+    # (2) dgl + cache gcn
+    #echo "python examples/profile/dgl_cache.py $params"
+    #$PY examples/profile/dgl_cache.py $params
 else
-    # pagraph gcn
+    # (3) pagraph gcn
     echo "python examples/profile/pa_gcn.py $params"
     $PY examples/profile/pa_gcn.py $params
 fi

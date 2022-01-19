@@ -50,7 +50,7 @@ def trainer(rank, world_size, args, backend='nccl'):
   embed_names = ['features', 'norm']
   cacher = storage.GraphCacheServer(remote_g, adj.shape[0], t2fid, rank)
   cacher.init_field(embed_names)
-  cacher.log = False
+  cacher.log = True
 
   # prepare model
   num_hops = args.n_layers if args.preprocess else args.n_layers + 1
@@ -85,6 +85,7 @@ def trainer(rank, world_size, args, backend='nccl'):
 
   # start training
   epoch_dur = []
+  epoch_miss_rate = []
   tic = time.time()
   with torch.autograd.profiler.profile(enabled=(rank==0), use_cuda=True) as prof:
     for epoch in range(args.n_epochs):
@@ -114,18 +115,16 @@ def trainer(rank, world_size, args, backend='nccl'):
       
       epoch_dur.append(time.time() - epoch_start_time)
       #print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
-      
       if cacher.log:
         miss_rate = cacher.get_miss_rate()
-        print('Epoch average miss rate: {:.4f}'.format(miss_rate))
+        epoch_miss_rate.append(miss_rate)
     toc = time.time()
-  if True:
-    print('Epoch time on gpu %s: %s' % (rank, epoch_dur))
-    print('Epoch average time on gpu %s: %.4f' %(rank, np.mean(np.array(epoch_dur[2:]))))
-    print('Total Time on gpu %s: %.4f' %(rank, toc - tic))
-  #if rank == 0:
-    #print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
-    #print('Total Time: {:.4f}s'.format(toc - tic))
+  
+  if cacher.log and rank == 0:
+    print('Epoch average hit rate: {:.4f}'.format(1-np.mean((epoch_miss_rate[2:]))))
+  if rank == 0:
+    print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
+    print('Total Time: {:.4f}s'.format(toc - tic))
     #print(prof.key_averages().table(sort_by='cuda_time_total'))
 
 
