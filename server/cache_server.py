@@ -12,6 +12,9 @@ import multiprocessing
 import PaGraph.data as data
 from PaGraph.parallel import SampleDeliver
 
+
+shuffle_sampler=True
+
 def main(args):
   coo_adj, feat = data.get_graph_data(args.dataset)
 
@@ -64,17 +67,37 @@ def main(args):
   if args.sample:
     train_mask, val_mask, test_mask = data.get_masks(args.dataset)
     train_nid = np.nonzero(train_mask)[0].astype(np.int64)
-    chunk_size = int(train_nid.shape[0] / args.num_workers) - 1
-    subgraph = []
-    # fixed
-    #sub_trainnid = []
-    #for rank in range(args.num_workers):
-    #  train_nid = train_nid[chunk_size * rank:chunk_size * (rank + 1)]
-    #  sub_trainnid.append(train_nid)
     hops = args.gnn_layers - 1 if args.preprocess else args.gnn_layers
     print('Expected trainer#: {}. Start sampling at server end...'.format(args.num_workers))
-    deliver = SampleDeliver(graph, train_nid, args.num_neighbors, hops, args.num_workers)
-    #deliver = SampleDeliver(graph, sub_trainnid, args.num_neighbors, hops, args.num_workers)
+    if args.one2all:
+      # temporary solution: load shuffling sampler here
+      sampler = dgl.contrib.sampling.NeighborSampler(
+                graph, args.batch_size,
+                args.num_neighbors, neighbor_type='in',
+                shuffle=shuffle_sampler, 
+                num_workers= args.num_workers,
+                num_hops=hops, 
+                seed_nodes=train_nid,
+                prefetch=True)
+    else:
+      # partition train nid for one2one samplers
+      chunk_size = int(train_nid.shape[0] / args.num_workers) - 1
+      sampler = []
+      for rank in range(args.num_workers):
+        sub_train_nid = train_nid[chunk_size * rank:chunk_size * (rank + 1)]
+        sub_sampler = dgl.contrib.sampling.NeighborSampler(
+                graph, args.batch_size,
+                args.num_neighbors, neighbor_type='in',
+                shuffle=shuffle_sampler, 
+                num_workers= args.num_workers,
+                num_hops=hops, 
+                seed_nodes=sub_train_nid,
+                prefetch=True)
+        sampler.append(sub_sampler)
+
+
+    # sampler=None  # load sampler later
+    deliver = SampleDeliver(graph, train_nid, args.num_neighbors, hops, args.num_workers, sampler)
     deliver.async_sample(args.n_epochs, args.batch_size, one2all=args.one2all)
     
   print('start running graph server on dataset: {}'.format(graph_name))

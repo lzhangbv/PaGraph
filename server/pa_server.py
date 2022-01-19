@@ -12,6 +12,8 @@ import multiprocessing
 import PaGraph.data as data
 from PaGraph.parallel import SampleDeliver
 
+shuffle_sampler=True
+
 def main(args):
   coo_adj, feat = data.get_graph_data(args.dataset)
 
@@ -71,7 +73,19 @@ def main(args):
       sub_trainnid.append(train_nid)
     hops = args.gnn_layers - 1 if args.preprocess else args.gnn_layers
     print('Expected trainer#: {}. Start sampling at server end...'.format(args.num_workers))
-    deliver = SampleDeliver(subgraph, sub_trainnid, args.num_neighbors, hops, args.num_workers)
+    
+    # temporary solution: load shuffled samplers here
+    sub_samplers = []
+    for rank in range(args.num_workers):
+      sampler = dgl.contrib.sampling.NeighborSampler(subgraph[rank], args.batch_size, 
+            args.num_neighbors, neighbor_type='in', 
+            shuffle=shuffle_sampler, num_workers=4,  
+            num_hops=hops, seed_nodes=sub_trainnid[rank], 
+            prefetch=True)
+      sub_samplers.append(sampler)
+    
+    # sub_samplers = None # load samplers later 
+    deliver = SampleDeliver(subgraph, sub_trainnid, args.num_neighbors, hops, args.num_workers, sub_samplers)
     deliver.async_sample(args.n_epochs, args.batch_size, one2all=args.one2all)
     
   print('start running graph server on dataset: {}'.format(graph_name))

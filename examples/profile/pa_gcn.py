@@ -86,6 +86,7 @@ def trainer(rank, world_size, args, backend='nccl'):
   # start training
   epoch_dur = []
   epoch_miss_rate = []
+  epoch_loss = []
   tic = time.time()
   with torch.autograd.profiler.profile(enabled=(rank==0), use_cuda=True) as prof:
     for epoch in range(args.n_epochs):
@@ -109,11 +110,12 @@ def trainer(rank, world_size, args, backend='nccl'):
           cache_time = time.time()
           cacher.auto_cache(g, embed_names)
           print('auto_cache time on gpu %s: %.4f' % (rank, time.time() - cache_time))
-        if rank == 0 and step % 10 == 0:
+        if rank == 0 and step % 2 == 0:
           print('epoch [{}] step [{}]. Loss: {:.4f}'
                 .format(epoch + 1, step, loss.item()))
       
       epoch_dur.append(time.time() - epoch_start_time)
+      epoch_loss.append(loss.item())
       #print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
       if cacher.log:
         miss_rate = cacher.get_miss_rate()
@@ -125,6 +127,7 @@ def trainer(rank, world_size, args, backend='nccl'):
   if rank == 0:
     print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
     print('Total Time: {:.4f}s'.format(toc - tic))
+    print('Epoch train loss: %s' % epoch_loss)
     #print(prof.key_averages().table(sort_by='cuda_time_total'))
 
 

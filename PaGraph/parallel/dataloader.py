@@ -74,7 +74,8 @@ class SampleDeliver:
                train_nid,
                neighbor_num,
                hops,
-               trainer_num):
+               trainer_num, 
+               sampler=None):
     self._graph = graph
     self._train_nid = train_nid
     self._neighbor_num = neighbor_num
@@ -84,13 +85,12 @@ class SampleDeliver:
     self._proc = None
     self._one2all = False
     self._barrier_interval = barrier_interval
-
+    self._sampler = sampler
 
   def async_sample(self, epoch, batch_size, one2all=False):
     self._one2all = one2all
     if one2all:
-      self._proc = mp.Process(target=self.one2all_sample,
-                              args=(epoch, batch_size))
+      self._proc = mp.Process(target=self.one2all_sample, args=(epoch, batch_size))
       self._proc.start()
     else:
       if not isinstance(self._train_nid, list):
@@ -111,19 +111,28 @@ class SampleDeliver:
         self._proc.append(proc)
 
   def one2all_sample(self, epoch_num, batch_size):
-    # waiting trainers connecting
-    barrier = SampleBarrier('server', trainer_num=self._trainer_num)
-
-    namebook = {tid: '127.0.0.1:' + str(self._sender_port + tid)\
-                        for tid in range(self._trainer_num)}
-    sampler = dgl.contrib.sampling.NeighborSampler(
+    """
+    one sampler to all trainers with global shuffle
+    """
+    # to be fixed: the sampler can't be loaded here unless set shuffle=False
+    if self._sampler is None:
+      sampler = dgl.contrib.sampling.NeighborSampler(
                 self._graph, batch_size,
                 self._neighbor_num, neighbor_type='in',
-                shuffle=True, num_workers=self._trainer_num * 2,
-                num_hops=self._hops, seed_nodes=self._train_nid,
-                prefetch=True, add_self_loop=False
-    )
+                shuffle=False, 
+                num_workers=self._trainer_num * 2,
+                num_hops=self._hops, 
+                seed_nodes=self._train_nid,
+                prefetch=True)
+    else: # temporary solution: load shuffled sampler outside (?)
+      sampler = self._sampler
+    
+    # waiting trainers connecting
+    barrier = SampleBarrier('server', trainer_num=self._trainer_num)
+    namebook = {tid: '127.0.0.1:' + str(self._sender_port + tid)\
+                        for tid in range(self._trainer_num)}
     sender = dgl.contrib.sampling.SamplerSender(namebook, net_type='socket')
+    
     for epoch in range(epoch_num):
       tid = 0
       idx = 0
@@ -137,10 +146,10 @@ class SampleDeliver:
           if idx % self._barrier_interval == 0:
             barrier.barrier()
       # temporary solution: makeup the unbalanced pieces
-      print('Epoch {} end. Next tid: {}'.format(epoch+1, tid % self._trainer_num))
+      #print('Epoch {} end. Next tid: {}'.format(epoch+1, tid % self._trainer_num))
       while tid % self._trainer_num != 0:
         sender.send(nf, tid % self._trainer_num)
-        print('Epoch {}: Makeup Sending tid: {}'.format(epoch+1, tid % self._trainer_num))
+        #print('Epoch {}: Makeup Sending tid: {}'.format(epoch+1, tid % self._trainer_num))
         tid += 1
       # end of epoch
       for tid in range(self._trainer_num):
@@ -149,14 +158,19 @@ class SampleDeliver:
   
 
   def one2one_sample(self, epoch_num, batch_size, train_nid, rank):
-    
-    # to be fixed: the sampler can't be loaded unless set shuffle=False
+    """
+    one sampler to one trainer with local shuffle
+    """
+    # to be fixed: the sampler can't be loaded here unless set shuffle=False
     graph = self._graph[rank] if isinstance(self._graph, list) else self._graph
-    sampler = dgl.contrib.sampling.NeighborSampler(graph, batch_size, 
+    if self._sampler is None:
+      sampler = dgl.contrib.sampling.NeighborSampler(graph, batch_size, 
             self._neighbor_num, neighbor_type='in', 
             shuffle=False, num_workers=4,  
             num_hops=self._hops, seed_nodes=train_nid, 
             prefetch=True)
+    else:  # temporary solution: load shuffled sampler outside (?)
+      sampler = self._sampler[rank]
       
     # waiting trainers connecting
     barrier = SampleBarrier('server', rank=rank)

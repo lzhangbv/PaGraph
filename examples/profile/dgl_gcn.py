@@ -61,6 +61,7 @@ def trainer(rank, world_size, args, backend='nccl'):
 
   # start training
   epoch_dur = []
+  epoch_loss = []
   if args.remote_sample:
     sampler = SampleLoader(g, rank, one2all=args.one2all)
   else:
@@ -92,13 +93,16 @@ def trainer(rank, world_size, args, backend='nccl'):
           loss.backward()
           optimizer.step()
         step += 1
-        if rank == 0 and step % 20 == 0:
+        if rank == 0 and step % 2 == 0:
           print('epoch [{}] step [{}]. Loss: {:.4f}'.format(epoch + 1, step, loss.item()))
-      if rank == 0:
-        epoch_dur.append(time.time() - epoch_start_time)
-        print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
-  print('Total Time on gpu %s: %.4f' % (rank, time.time() - profile_begin))
-  #if rank == 0:
+
+      epoch_dur.append(time.time() - epoch_start_time)
+      epoch_loss.append(loss.item())
+
+  if rank == 0:
+    print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
+    print('Total Time: %.4f' % (time.time() - profile_begin))
+    print('Epoch train loss: %s' % epoch_loss)
   #  print(prof.key_averages().table(sort_by='cuda_time_total'))
 
 
