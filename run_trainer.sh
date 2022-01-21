@@ -6,7 +6,9 @@ remote_sample="${remote_sample:-1}"
 one2all="${one2all:-0}"
 pa_trainer="${pa_trainer:-1}"
 
-params="--dataset /localdata/reddit --feat-size 602 --gpu $gpu_ids"
+epochs="${epochs:-10}"
+
+params="--dataset /localdata/reddit --feat-size 602 --gpu $gpu_ids --n-epochs $epochs"
 
 if [ "$preprocess" = "1" ]; then
 params="$params --preprocess"

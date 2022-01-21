@@ -13,7 +13,7 @@ import PaGraph.data as data
 from PaGraph.parallel import SampleDeliver
 
 
-shuffle_sampler=True
+shuffle_sampler=False
 
 def main(args):
   coo_adj, feat = data.get_graph_data(args.dataset)
@@ -133,4 +133,5 @@ if __name__ == '__main__':
   parser.set_defaults(preprocess=False)
   
   args = parser.parse_args()
+  print(args)
   main(args)

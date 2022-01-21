@@ -12,6 +12,10 @@ import dgl
 from PaGraph.model.gcn_nssc import GCNSampling
 import PaGraph.data as data
 from PaGraph.parallel import SampleLoader
+from eval import evaluation
+
+
+SPEED = True
 
 def init_process(rank, world_size, backend):
   os.environ['MASTER_ADDR'] = '127.0.0.1'
@@ -55,6 +59,7 @@ def trainer(rank, world_size, args, backend='nccl'):
   optimizer = torch.optim.Adam(model.parameters(),
                                lr=args.lr,
                                weight_decay=args.weight_decay)
+  
   model.cuda(rank)
   model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
   ctx = torch.device(rank)
@@ -62,6 +67,8 @@ def trainer(rank, world_size, args, backend='nccl'):
   # start training
   epoch_dur = []
   epoch_loss = []
+  epoch_eval_acc = []
+  epoch_eval_time = []
   if args.remote_sample:
     sampler = SampleLoader(g, rank, one2all=args.one2all)
   else:
@@ -98,11 +105,24 @@ def trainer(rank, world_size, args, backend='nccl'):
 
       epoch_dur.append(time.time() - epoch_start_time)
       epoch_loss.append(loss.item())
+      # evaluation
+      if rank == 0 and not SPEED:
+          eval_begin  = time.time()
+          eval_acc = evaluation(args, g, model, test_nid, labels, sample_infer=False)
+          epoch_eval_time.append(time.time() - eval_begin)
+          epoch_eval_acc.append(eval_acc)
+          print('Epoch eval acc: %s' % eval_acc)
 
   if rank == 0:
     print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
     print('Total Time: %.4f' % (time.time() - profile_begin))
-    print('Epoch train loss: %s' % epoch_loss)
+    #print('Epoch train loss: %s' % epoch_loss)
+    if not SPEED:
+        print('Epoch eval acc: %s' % epoch_eval_acc)
+        print('Epoch eval average time: %s' % np.mean(epoch_eval_time[2:]))
+    else:
+        eval_acc = evaluation(args, g, model, test_nid, labels, sample_infer=False)
+        print('Non-sample eval acc: %s' % eval_acc)
   #  print(prof.key_averages().table(sort_by='cuda_time_total'))
 
 
@@ -144,6 +164,7 @@ if __name__ == '__main__':
 
 
   args = parser.parse_args()
+  print(args)
 
   os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
   gpu_num = len(args.gpu.split(','))
