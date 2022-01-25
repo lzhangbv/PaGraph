@@ -13,6 +13,8 @@ from PaGraph.model.gcn_nssc import GCNSampling
 import PaGraph.data as data
 
 
+cached_percentage=0.8
+
 def count_nf_vnum(nf):
   vnum = 0
   for lid in range(nf.num_layers):
@@ -26,7 +28,8 @@ def count_vertex_freq(nf, freq):
 def optimal_cache_hit(freq, cached):
   num = int(freq.shape[0] * cached)
   total = np.sum(freq)
-  sorted_freq = np.sort(freq)
+  sorted_freq = np.sort(freq) # opt
+  #np.random.shuffle(sorted_freq) # random
   hit_time = np.sum(sorted_freq[-num:])
   return hit_time / total
 
@@ -55,7 +58,7 @@ def main(args):
                                                   prefetch=False):
       #epoch_load_vnum += count_nf_vnum(nf)
       count_vertex_freq(nf, freq)
-    hit_rate = optimal_cache_hit(freq, 0.2)
+    hit_rate = optimal_cache_hit(freq, cached_percentage)
     print('Oracle cache hit rate: ', hit_rate)
 
 if __name__ == '__main__':

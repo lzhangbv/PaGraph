@@ -15,6 +15,8 @@ import PaGraph.data as data
 import PaGraph.storage as storage
 from PaGraph.parallel import SampleLoader
 
+exclude_GPU_compute = False
+
 def init_process(rank, world_size, backend):
   os.environ['MASTER_ADDR'] = '127.0.0.1'
   os.environ['MASTER_PORT'] = '29501'
@@ -99,7 +101,8 @@ def trainer(rank, world_size, args, backend='nccl'):
           batch_nids = nf.layer_parent_nid(-1)
           label = labels[batch_nids]
           label = label.cuda(rank, non_blocking=True)
-        with torch.autograd.profiler.record_function('gpu-compute'):
+        #with torch.autograd.profiler.record_function('gpu-compute'):
+        if not exclude_GPU_compute or not (epoch + step):
           pred = model(nf)
           loss = loss_fcn(pred, label)
           optimizer.zero_grad()

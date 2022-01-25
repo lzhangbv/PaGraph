@@ -3,8 +3,8 @@
 server="${server:-0}"
 
 # settings
-gpu_num=4
-gpu_ids=0,1,2,3
+gpu_num=1
+gpu_ids=0
 preprocess=1
 remote_sample=1
 
@@ -13,10 +13,10 @@ pa_server=0
 pa_trainer=0
 
 # used for global shuffle
-one2all=1
+one2all=0
 
 # training params
-epochs=20
+epochs=10
 
 if [ "$one2all" = "1" ]; then
     remote_sample=1

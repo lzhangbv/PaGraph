@@ -16,6 +16,7 @@ from eval import evaluation
 
 
 SPEED = True
+exclude_GPU_compute = True
 
 def init_process(rank, world_size, backend):
   os.environ['MASTER_ADDR'] = '127.0.0.1'
@@ -93,7 +94,8 @@ def trainer(rank, world_size, args, backend='nccl'):
           batch_nids = nf.layer_parent_nid(-1)
           label = labels[batch_nids]
           label = label.cuda(rank, non_blocking=True)
-        with torch.autograd.profiler.record_function('gpu-compute'):
+        #with torch.autograd.profiler.record_function('gpu-compute'):
+        if not exclude_GPU_compute or not (step + epoch):
           pred = model(nf)
           loss = loss_fcn(pred, label)
           optimizer.zero_grad()

@@ -33,6 +33,8 @@ if [ "$pa_trainer" = "0" ]; then
     # (2) dgl + cache gcn
     #echo "python examples/profile/dgl_cache.py $params"
     #$PY examples/profile/dgl_cache.py $params
+    # (3) opt cache hit
+    #$PY examples/opt_cache_hit.py --dataset /localdata/reddit --feat-size 602 --n-epochs $epochs
 else
     # (3) pagraph gcn
     echo "python examples/profile/pa_gcn.py $params"
