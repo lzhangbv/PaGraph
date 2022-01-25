@@ -16,7 +16,7 @@ from eval import evaluation
 
 
 SPEED = True
-exclude_GPU_compute = True
+exclude_GPU_compute = False
 
 def init_process(rank, world_size, backend):
   os.environ['MASTER_ADDR'] = '127.0.0.1'

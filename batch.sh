@@ -9,8 +9,8 @@ preprocess=1
 remote_sample=1
 
 # partitions
-pa_server=0
-pa_trainer=0
+pa_server=1
+pa_trainer=1
 
 # used for global shuffle
 one2all=0

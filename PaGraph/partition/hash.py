@@ -1,4 +1,4 @@
-
+import time
 import os
 import sys
 import torch
@@ -27,6 +27,7 @@ if __name__ == "__main__":
   dgl_g = DGLGraph(adj, readonly=True)
   train_mask, val_mask, test_mask = data.get_masks(args.dataset)
   train_nid = np.nonzero(train_mask)[0].astype(np.int64)
+  
   # shuffle
   np.random.shuffle(train_nid)
   labels = data.get_labels(args.dataset)
@@ -40,9 +41,11 @@ if __name__ == "__main__":
     os.mkdir(partition_dataset)
   except FileExistsError:
     pass
-
+ 
+  ttime = 0
   chunk_size = int(len(train_nid) / args.partition)
   for pid in range(args.partition):
+    start_time = time.time()
     start_ofst = chunk_size * pid
     if pid == args.partition - 1:
       end_ofst = len(train_nid)
@@ -51,6 +54,7 @@ if __name__ == "__main__":
     part_nid = train_nid[start_ofst:end_ofst]
     subadj, sub2fullid, subtrainid = get_sub_graph(dgl_g, part_nid, args.num_hops)
     sublabel = labels[sub2fullid[subtrainid]]
+    ttime += (time.time() - start_time)
     # files
     subadj_file = os.path.join(
       partition_dataset,
@@ -68,4 +72,4 @@ if __name__ == "__main__":
     np.save(sub_trainid_file, subtrainid)
     np.save(sub_train2full_file, sub2fullid)
     np.save(sub_label_file, sublabel)
-  
+  print("Partition time: %.2f" % ttime)

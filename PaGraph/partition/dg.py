@@ -1,3 +1,4 @@
+import time
 import os
 import sys
 import torch
@@ -28,6 +29,8 @@ def in_neighbors_hop(csc_adj, nid, hops):
 
 
 def dg_max_score(score, p_vnum):
+  if len(score) == 1:
+      return 0
   ids = np.argsort(score)[-2:]
   if score[ids[0]] != score[ids[1]]:
     return ids[1]
@@ -122,6 +125,8 @@ if __name__ == '__main__':
   train_nids = np.nonzero(train_mask)[0].astype(np.int64)
   labels = data.get_labels(args.dataset)
   
+  ttime = 0
+  start_time = time.time()
   # ordering
   if args.ordering:
     print('re-ordering graphs...')
@@ -147,11 +152,15 @@ if __name__ == '__main__':
   except FileExistsError:
     pass
   dgl_g = dgl.DGLGraph(adj, readonly=True)
+  ttime += (time.time() - start_time)
+
   for pid, (pv, ptrainv) in enumerate(zip(p_v, p_trainv)):
     print('generating subgraph# {}...'.format(pid))
+    time_start = time.time()
     #subadj, sub2fullid, subtrainid = node2graph(adj, pv, ptrainv)
     subadj, sub2fullid, subtrainid = get_sub_graph(dgl_g, ptrainv, args.num_hops)
     sublabel = labels[sub2fullid[subtrainid]]
+    ttime += (time.time() - start_time)
     # files
     subadj_file = os.path.join(
       partition_dataset,
@@ -169,3 +178,4 @@ if __name__ == '__main__':
     np.save(sub_trainid_file, subtrainid)
     np.save(sub_train2full_file, sub2fullid)
     np.save(sub_label_file, sublabel)
+  print("Partition Time: %.2f" % ttime)
